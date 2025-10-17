@@ -59,6 +59,7 @@ Note: These images are captured from the Wazuh room in TryHackMe.
 Wazuh agent file location: `C:\Program Files (x86)\ossec-agent\ossec.conf`
 ![](PNG/Wazuh_Notes_PNG_15.png)
 ![](PNG/Wazuh_Notes_PNG_16.png)
+
 This configuration is added to the Wazuh agent to instruct it to send these events to the Wazuh management server.
 
 Wazuh management server rules location: `/var/ossec/etc/rules/local_rules.xml`
@@ -167,6 +168,7 @@ Answer: v4.2.5
 
 # Generating Reports with Wazuh
 ![](PNG/Wazuh_Notes_PNG_19.png)![](PNG/Wazuh_Notes_PNG_20.png)![](PNG/Wazuh_Notes_PNG_21.png)
+
 Note: Due to this being an old room, there were no data available to run the report.
 
 #### Analyze the report. What is the name of the agent that has generated the most alerts?
